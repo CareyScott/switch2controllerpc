@@ -14,7 +14,7 @@ def main() -> int:
     )
 
     # Bootstrap must run before any vgamepad / ViGEmBus-touching import.
-    from .bootstrap import ensure_vigembus, ViGEmBusError
+    from .bootstrap import ViGEmBusError, ensure_vigembus
 
     try:
         ensure_vigembus()

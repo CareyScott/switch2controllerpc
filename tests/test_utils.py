@@ -57,7 +57,8 @@ def test_get_stick_xy_packs_two_12bit_values_into_3_bytes():
         (20, 10, -10),      # backward, no wrap
         (65530, 5, 11),     # forward across 16-bit boundary
         (5, 65530, -11),    # backward across 16-bit boundary
-        (0, 32768, -32768), # at the half-point chooses the negative direction
+        (0, 32767, 32767),  # just under the half-point stays positive
+        (0, 32769, -32767), # just over the half-point flips negative
     ],
 )
 def test_signed_looping_difference_16bit_handles_wraparound(a, b, expected):

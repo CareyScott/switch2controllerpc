@@ -2,9 +2,8 @@
 Adapted from ViGEm source
 """
 
-from enum import IntFlag, IntEnum
-from ctypes import Structure, Union, c_short, c_ushort, c_ubyte
-
+from ctypes import Structure, Union, c_short, c_ubyte, c_ushort
+from enum import IntEnum, IntFlag
 
 c_byte = c_ubyte  # because BYTE is actually unsigned char
 

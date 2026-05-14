@@ -64,7 +64,12 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B"]
-ignore = ["E501"]
+ignore = [
+    "E501",  # line too long; legacy upstream code has long lines we don't want to mass-edit
+    "E701",  # `if cond: stmt` is used pervasively in upstream gui.py — preserving style
+    "E702",  # `stmt; stmt` likewise (mostly in inline tkinter setup)
+    "B008",  # `VibrationData()` in default args is intentional in upstream controller.py
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

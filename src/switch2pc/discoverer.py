@@ -1,18 +1,23 @@
 """A class used to find switch 2 controllers via Bluetooth
 """
-import threading
-from bleak import BleakScanner, BleakClient, BleakGATTCharacteristic
-from bleak.backends.device import BLEDevice
-from bleak.backends.scanner import AdvertisementData
-from bleak.exc import BleakError
 import asyncio
 import logging
+import threading
+
 import bluetooth
-import yaml
-from .utils import to_hex, convert_mac_string_to_value, decodeu
-from .controller import Controller, ControllerInputData, NINTENDO_VENDOR_ID, CONTROLER_NAMES, VibrationData, NSO_GAMECUBE_CONTROLLER_PID
-from .virtual_controller import VirtualController
+from bleak import BleakScanner
+from bleak.backends.device import BLEDevice
+from bleak.backends.scanner import AdvertisementData
+
 from .config import CONFIG
+from .controller import (
+    CONTROLER_NAMES,
+    NINTENDO_VENDOR_ID,
+    NSO_GAMECUBE_CONTROLLER_PID,
+    Controller,
+)
+from .utils import convert_mac_string_to_value, decodeu, to_hex
+from .virtual_controller import VirtualController
 
 logger = logging.getLogger(__name__)
 
@@ -27,29 +32,29 @@ async def run_discovery(update_controllers_threadsafe, quit_event):
     global VIRTUAL_CONTROLLERS, UPDATE_CALLBACK, DISCOVERER_LOOP, DISCONNECT_CALLBACK
     UPDATE_CALLBACK = update_controllers_threadsafe
     DISCOVERER_LOOP = asyncio.get_running_loop()
-    
+
     try:
         host_mac_value = convert_mac_string_to_value(bluetooth.read_local_bdaddr()[0])
         connected_mac_addresses: list[str] = []
 
         async def disconnected_controller(controller: Controller):
             logger.info(f"Controller disconected {controller.client.address}")
-            
+
             if controller.client.address in connected_mac_addresses:
                 connected_mac_addresses.remove(controller.client.address)
-                
+
             for i, vc in enumerate(VIRTUAL_CONTROLLERS[:]):
                 if vc is not None and await vc.remove_controller(controller):
                     VIRTUAL_CONTROLLERS[i] = None
-            
+
             if IS_SHUTTING_DOWN:
                 return
-                
+
             reorder_controllers()
-            
+
             if UPDATE_CALLBACK is not None:
                 UPDATE_CALLBACK(list(VIRTUAL_CONTROLLERS))
-            
+
             await update_all_player_leds()
 
         DISCONNECT_CALLBACK = disconnected_controller
@@ -74,21 +79,21 @@ async def run_discovery(update_controllers_threadsafe, quit_event):
                             virtual_controller = next(filter(lambda vc: vc is not None and vc.is_single_joycon_left(), VIRTUAL_CONTROLLERS), None)
 
                     if virtual_controller is None:
-                        slot_index = next(i for i, c in enumerate(VIRTUAL_CONTROLLERS) if c == None)
+                        slot_index = next(i for i, c in enumerate(VIRTUAL_CONTROLLERS) if c is None)
                         virtual_controller = VirtualController(slot_index + 1, disconnected_controller)
                         VIRTUAL_CONTROLLERS[slot_index] = virtual_controller
-                    
+
                     virtual_controller.add_controller(controller)
                 finally:
                     lock.release()
-                
+
                 await virtual_controller.init_added_controller(controller)
-                
+
                 reorder_controllers()
-                
+
                 if UPDATE_CALLBACK is not None:
                     UPDATE_CALLBACK(list(VIRTUAL_CONTROLLERS))
-                
+
                 await update_all_player_leds()
 
                 logger.info(VIRTUAL_CONTROLLERS)
@@ -115,8 +120,8 @@ async def run_discovery(update_controllers_threadsafe, quit_event):
                         connected_mac_addresses.append(device.address)
                         await add_controller(device, True)
 
-        async with BleakScanner(callback) as scanner:
-            print("Presss a button on a paired controller, or hold sync button on an unpaired controller")
+        async with BleakScanner(callback):
+            print("Press a button on a paired controller, or hold sync button on an unpaired controller")
             await asyncio.get_event_loop().run_in_executor(None, quit_event.wait)
     finally:
         for vc in VIRTUAL_CONTROLLERS:
@@ -133,7 +138,7 @@ def reorder_controllers():
     for vc in VIRTUAL_CONTROLLERS:
         if vc is not None:
             active_vcs.append(vc)
-    
+
     if not active_vcs:
         return
 
@@ -151,12 +156,12 @@ def reorder_controllers():
         return 5
 
     active_vcs.sort(key=get_priority)
-    
+
     new_list = [None] * 8
     for i, vc in enumerate(active_vcs):
         new_list[i] = vc
         vc.player_number = i + 1
-    
+
     VIRTUAL_CONTROLLERS[:] = new_list
 
 def set_shutting_down(val):
@@ -174,18 +179,18 @@ async def _split_controller_async(vc_index):
     if vc is not None and not vc.is_single():
         c2 = vc.controllers.pop()
         await vc.init_added_controller(vc.controllers[0]) # reinit first
-        
-        slot_index = next(i for i, c in enumerate(VIRTUAL_CONTROLLERS) if c == None)
+
+        slot_index = next(i for i, c in enumerate(VIRTUAL_CONTROLLERS) if c is None)
         new_vc = VirtualController(slot_index + 1, DISCONNECT_CALLBACK)
         new_vc.add_controller(c2)
         VIRTUAL_CONTROLLERS[slot_index] = new_vc
         await new_vc.init_added_controller(c2)
-        
+
         reorder_controllers()
 
         if UPDATE_CALLBACK is not None:
             UPDATE_CALLBACK(list(VIRTUAL_CONTROLLERS))
-            
+
         await update_all_player_leds()
 
 def split_controller(vc_index):
@@ -196,23 +201,23 @@ async def _merge_controllers_async(vc_index1, vc_index2):
     # Ensure vc_index1 is the lower index to prioritize Player 1
     if vc_index1 > vc_index2:
         vc_index1, vc_index2 = vc_index2, vc_index1
-        
+
     vc1 = VIRTUAL_CONTROLLERS[vc_index1]
     vc2 = VIRTUAL_CONTROLLERS[vc_index2]
-    
+
     if vc1 is not None and vc2 is not None and vc1.is_single() and vc2.is_single():
         c2 = vc2.controllers[0]
         await vc2.remove_controller(c2)
         VIRTUAL_CONTROLLERS[vc_index2] = None
-        
+
         vc1.add_controller(c2)
         await vc1.init_added_controller(c2)
-        
+
         reorder_controllers()
 
         if UPDATE_CALLBACK is not None:
             UPDATE_CALLBACK(list(VIRTUAL_CONTROLLERS))
-            
+
         await update_all_player_leds()
 
 def merge_controllers(vc_index1, vc_index2):

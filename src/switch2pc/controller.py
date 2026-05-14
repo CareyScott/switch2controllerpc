@@ -1,24 +1,30 @@
-import bleak
-from bleak import BleakScanner, BleakClient, BleakGATTCharacteristic
-from bleak.backends.device import BLEDevice
 import asyncio
+import ctypes
 import logging
+import threading
+import time
+from dataclasses import dataclass
+
 import bluetooth
 import win32api
 import win32con
-from dataclasses import dataclass
-import ctypes
-import time
-import threading
+from bleak import BleakClient, BleakGATTCharacteristic, BleakScanner
+from bleak.backends.device import BLEDevice
+
 try:
     ctypes.windll.winmm.timeBeginPeriod(1)
 except Exception:
     pass
 from .config import CONFIG, SWITCH_BUTTONS
 from .utils import (
-    apply_calibration_to_axis, get_stick_xy, press_or_release_mouse_button,
-    reverse_bits, signed_looping_difference_16bit, to_hex, decodeu, decodes,
+    apply_calibration_to_axis,
     convert_mac_string_to_value,
+    decodes,
+    decodeu,
+    get_stick_xy,
+    press_or_release_mouse_button,
+    reverse_bits,
+    signed_looping_difference_16bit,
 )
 
 logging.basicConfig()
@@ -87,7 +93,7 @@ class MouseState:
     x: int
     y: int
     lb: bool
-    mb: bool 
+    mb: bool
     rb: bool
 
 @dataclass
@@ -102,7 +108,7 @@ class StickCalibrationData:
             # Max/min are absolute offsets from center
             self.max = get_stick_xy(data[3:6])
             self.min = get_stick_xy(data[6:9])
-            
+
             # Sanity check: if calibration is all zeros/FF, use defaults to prevent stuck stick
             if self.center == (0, 0) and self.max == (0, 0):
                 self.center = (2048, 2048)
@@ -114,7 +120,7 @@ class StickCalibrationData:
             self.min = (1500, 1500)
 
     def apply_calibration(self, raw_values: tuple[int, int]):
-        return (apply_calibration_to_axis(raw_values[0], self.center[0], self.max[0], self.min[0]), 
+        return (apply_calibration_to_axis(raw_values[0], self.center[0], self.max[0], self.min[0]),
                 apply_calibration_to_axis(raw_values[1], self.center[1], self.max[1], self.min[1]))
 
 @dataclass
@@ -154,8 +160,8 @@ class ControllerInputData:
             self.left_stick = left_stick_calibration.apply_calibration(self.left_stick)
         if right_stick_calibration:
             self.right_stick = right_stick_calibration.apply_calibration(self.right_stick)
-            
-    
+
+
 
 @dataclass
 class ControllerInfo:
@@ -187,16 +193,16 @@ class VibrationData:
 
     def get_bytes(self):
         value = 0x0000000000
-        value |= (self.lf_freq & 0x1FF)        
-        value |= int(self.lf_en_tone) << 9     
-        value |= (self.lf_amp & 0x3FF) << 10   
-        value |= (self.hf_freq & 0x1FF) << 20  
-        value |= int(self.hf_en_tone) << 29    
-        value |= (self.hf_amp & 0x3FF) << 30   
+        value |= (self.lf_freq & 0x1FF)
+        value |= int(self.lf_en_tone) << 9
+        value |= (self.lf_amp & 0x3FF) << 10
+        value |= (self.hf_freq & 0x1FF) << 20
+        value |= int(self.hf_en_tone) << 29
+        value |= (self.hf_amp & 0x3FF) << 30
         return value.to_bytes(byteorder='little', length=5)
 
 class Controller:
-    
+
     def __init__(self, device: BLEDevice):
         self.device: BLEDevice = device
         self.client: BleakClient = None
@@ -211,41 +217,41 @@ class Controller:
         self.response_future = None
         self.vibration_packet_id = 0
         self.battery_voltage = None
-        
+
         self.gyro_mouse_enabled = False
         self.gr_was_pressed = False
         self.prev_zr = False
         self.prev_zl = False
-        
+
         self.residual_x = 0.0
         self.residual_y = 0.0
         self.smooth_dx = 0.0
         self.smooth_dy = 0.0
-        
+
         self.prev_screenshot = False
         self.prev_key_c = False
-        
+
         self.gyro_target_vx = 0.0
         self.gyro_target_vy = 0.0
-        self.jc_target_vx = 0.0    
-        self.jc_target_vy = 0.0    
+        self.jc_target_vx = 0.0
+        self.jc_target_vy = 0.0
         self.jc_mouse_active = False
         self.current_vx = 0.0
         self.current_vy = 0.0
         self.interp_residual_x = 0.0
         self.interp_residual_y = 0.0
         self.interp_task = None
-        
+
         self.is_calibrating = False
         self.calibration_end_time = 0
-        
+
         # Set defaults, will load actual calibration offsets after connecting and getting device info
         self.gyro_bias = (0.0, 0.0, 0.0)
-            
+
         self.stick_r_bias = tuple(getattr(CONFIG, "stick_r_bias", [0.0, 0.0]))
         self.calibration_samples_gyro = []
         self.calibration_samples_stick = []
-        
+
     def __repr__(self):
         return f"{CONTROLER_NAMES[self.controller_info.product_id]} : {self.device.address}"
 
@@ -254,22 +260,22 @@ class Controller:
         self.calibration_end_time = time.perf_counter() + 2.0
         self.calibration_samples_gyro = []
         self.calibration_samples_stick = []
-        
+
         logger.info(f"Calibration started for {self.device.address}. Please keep the controller stationary...")
-    
+
     async def connect(self):
         if (self.client is not None):
             raise Exception("Already connected")
-        
+
         def disconnected_callback(client: BleakClient):
             if (self.disconnected_callback is not None):
                 asyncio.create_task(self.disconnected_callback(self))
-        
+
         self.client = BleakClient(self.device, disconnected_callback=disconnected_callback)
         await self.client.connect(timeout=20.0)
-        
+
         logger.info(f"Connected to {self.device.address}")
-        
+
         import sys
         if sys.platform == "win32":
             try:
@@ -277,7 +283,7 @@ class Controller:
                     import winrt.windows.devices.bluetooth as wd_bluetooth
                 except ImportError:
                     import bleak_winrt.windows.devices.bluetooth as wd_bluetooth
-                    
+
                 if hasattr(wd_bluetooth, 'BluetoothLEPreferredConnectionParameters'):
                     params = wd_bluetooth.BluetoothLEPreferredConnectionParameters.throughput_optimized
                     device = getattr(self.client._backend, "_requester", None)
@@ -293,12 +299,12 @@ class Controller:
                 logger.warning(f"Failed to apply ThroughputOptimized: {e}")
 
         await asyncio.sleep(1.0)
-        
+
         self.response_future = None
         def command_response_callback(sender: BleakGATTCharacteristic, data: bytearray):
             if self.response_future:
                 self.response_future.set_result(data)
-        
+
         for attempt in range(3):
             try:
                 await self.client.start_notify(COMMAND_RESPONSE_UUID, command_response_callback)
@@ -309,7 +315,7 @@ class Controller:
                 await asyncio.sleep(1.0)
 
         self.controller_info = await self.read_controller_info()
-        
+
         # After getting controller info, prioritize loading specific calibration from MAC address
         addr = self.device.address
         if addr in CONFIG.calibration_data:
@@ -322,7 +328,7 @@ class Controller:
         self.stick_calibration, self.second_stick_calibration = await self.read_calibration_data()
 
         await self.enable_input_notify_callback()
-        
+
         await self.enableFeatures(FEATURE_MOTION | FEATURE_MOUSE)
 
         self.interp_running = True
@@ -333,17 +339,17 @@ class Controller:
         try:
             bass_thump = VibrationData(lf_freq=0x060, lf_amp=0x350, hf_freq=0x0c0, hf_amp=0x250)
             sharp_click = VibrationData(hf_freq=0x1e2, hf_amp=0x300, lf_amp=0x030)
-            stop_vibration = VibrationData() 
+            stop_vibration = VibrationData()
 
             await self.set_vibration(bass_thump)
-            await asyncio.sleep(0.2) 
-            
+            await asyncio.sleep(0.2)
+
             await self.set_vibration(stop_vibration)
-            await asyncio.sleep(0.01) 
-            
+            await asyncio.sleep(0.01)
+
             await self.set_vibration(sharp_click)
-            await asyncio.sleep(1) 
-            
+            await asyncio.sleep(1)
+
             await self.set_vibration(stop_vibration)
             logger.info("Connection haptic feedback triggered.")
         except Exception as e:
@@ -354,12 +360,12 @@ class Controller:
         controller = cls(device)
         await controller.connect()
         return controller
-    
+
     @classmethod
     async def create_from_mac_address(cls, mac_address):
         device = await BleakScanner.find_device_by_address(mac_address)
         return await cls.create_from_device(device)
-        
+
     async def disconnect(self):
         self.interp_running = False
         if self.client:
@@ -487,7 +493,7 @@ class Controller:
             raw_down_pressed  = bool(inputData.buttons & 0x04)
             raw_right_pressed = bool(inputData.buttons & 0x08)
             inputData.buttons &= ~0x0F
-            
+
             abxy_mode = getattr(CONFIG, "abxy_mode", "Xbox")
             if abxy_mode == "Switch":
                 if raw_down_pressed:  inputData.buttons |= 0x08
@@ -525,11 +531,11 @@ class Controller:
                 self._own_gyro_trigger = trigger_gyro
                 self._own_zr_pressed = bool(inputData.buttons & SWITCH_BUTTONS.get("ZR", 0))
                 self._own_zl_pressed = bool(inputData.buttons & SWITCH_BUTTONS.get("ZL", 0))
-                
+
                 effective_gyro_trigger = trigger_gyro or getattr(self, '_shared_gyro_trigger', False)
                 effective_zr = self._own_zr_pressed or getattr(self, '_shared_zr_pressed', False)
                 effective_zl = self._own_zl_pressed or getattr(self, '_shared_zl_pressed', False)
-                
+
                 self.simulate_gyro_mouse(inputData, effective_gyro_trigger, effective_zr, effective_zl)
 
             if self.input_report_callback is not None:
@@ -539,20 +545,20 @@ class Controller:
 
     def set_input_report_callback(self, callback):
         self.input_report_callback = callback
-        
+
     def simulate_mouse(self, inputData: ControllerInputData):
         mouse_config = CONFIG.mouse_config
-        
+
         if mouse_config.enabled and self.is_joycon():
-            self.jc_mouse_active = True 
-            
+            self.jc_mouse_active = True
+
             if inputData.mouse_distance != 0 and inputData.mouse_distance < 1000 and inputData.mouse_roughness < 4000:
                 x, y = inputData.mouse_coords
                 mouseButtonsConfig = mouse_config.joycon_l_buttons if self.is_joycon_left() else mouse_config.joycon_r_buttons
                 lb = inputData.buttons & mouseButtonsConfig.left_button
                 mb = inputData.buttons & mouseButtonsConfig.middle_button
                 rb = inputData.buttons & mouseButtonsConfig.right_button
-                
+
                 inputData.buttons &= ~(mouseButtonsConfig.left_button | mouseButtonsConfig.middle_button | mouseButtonsConfig.right_button)
 
                 if getattr(self, 'previous_mouse_state', None) is not None:
@@ -578,7 +584,7 @@ class Controller:
 
                     if abs(scroll_value) > 0.2:
                         win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, 0, 0, int(scroll_value * 60 * mouse_config.scroll_sensitivity), 0)
-                        
+
                 self.previous_mouse_state = MouseState(x, y, bool(lb), bool(mb), bool(rb))
             else:
                 self.previous_mouse_state = None
@@ -621,31 +627,31 @@ class Controller:
                     gy = sum(s[1] for s in self.calibration_samples_gyro) / len(self.calibration_samples_gyro)
                     gz = sum(s[2] for s in self.calibration_samples_gyro) / len(self.calibration_samples_gyro)
                     self.gyro_bias = (gx, gy, gz)
-                    
+
                     logger.info(f"Calibration complete for {self.device.address}. Gyro bias: ({gx:.1f}, {gy:.1f}, {gz:.1f})")
-                    
+
                     # Store device-specific calibration data
                     CONFIG.calibration_data[self.device.address] = list(self.gyro_bias)
-                    
+
                     if self.is_joycon_left():
                         CONFIG.gyro_bias_l = list(self.gyro_bias)
                     else:
                         CONFIG.gyro_bias_r = list(self.gyro_bias)
                     CONFIG.save_config()
 
-        bias_threshold = 5  
+        bias_threshold = 5
         bx, by, bz = self.gyro_bias
         # Ignore if bias is extremely small
         bx = bx if abs(bx) > bias_threshold else 0.0
         by = by if abs(by) > bias_threshold else 0.0
         bz = bz if abs(bz) > bias_threshold else 0.0
-        
+
         raw_gx, raw_gy, raw_gz = inputData.gyroscope
         gyro_x = raw_gx - bx
         gyro_y = raw_gy - by
         gyro_z = raw_gz - bz
 
-        soft_dz = 8.0  
+        soft_dz = 8.0
         def apply_soft_deadzone(val, dz):
             if abs(val) < dz: return 0.0
             return (val - dz) if val > 0 else (val + dz)
@@ -655,7 +661,7 @@ class Controller:
         gyro_z = apply_soft_deadzone(gyro_z, soft_dz)
 
         inputData.gyroscope = (gyro_x, gyro_y, gyro_z)
-        
+
         rx, ry = inputData.right_stick
 
         if activation_mode == "Hold":
@@ -663,7 +669,7 @@ class Controller:
         else:
             if trigger_pressed and not self.gr_was_pressed:
                 self.gyro_mouse_enabled = not self.gyro_mouse_enabled
-                
+
         self.gr_was_pressed = trigger_pressed
 
         if self.gyro_mouse_enabled:
@@ -673,36 +679,36 @@ class Controller:
             else:
                 rx, ry = inputData.right_stick
                 inputData.right_stick = (0, 0)
-            
+
             target_vx = 0.0
             target_vy = 0.0
-            
+
             gyro_x, gyro_y, gyro_z = inputData.gyroscope
-            gyro_deadzone = 0.2 
-            
+            gyro_deadzone = 0.2
+
             current_mode = getattr(CONFIG, "gyro_mode", "Yaw")
 
             if current_mode == "Roll":
                 ax, ay, az = inputData.accelerometer
-                
-                tilt_normalized = ax / 4000.0  
-                
+
+                tilt_normalized = ax / 4000.0
+
                 sensitivity = getattr(CONFIG, "gyro_sensitivity", 4.0)
                 steer_value = tilt_normalized * (sensitivity * -2)
-                
+
                 steer_value = max(-1.0, min(1.0, steer_value))
-                
+
                 inputData.left_stick = (steer_value, inputData.left_stick[1])
 
             else:
                 if abs(gyro_x) > gyro_deadzone or abs(gyro_z) > gyro_deadzone or abs(gyro_y) > gyro_deadzone:
                     sensitivity = getattr(CONFIG, "gyro_sensitivity", 0.3)
                     horizontal_val = -gyro_z
-                    
+
                     eff_h = 0
                     if horizontal_val > gyro_deadzone: eff_h = horizontal_val - gyro_deadzone
                     elif horizontal_val < -gyro_deadzone: eff_h = horizontal_val + gyro_deadzone
-                        
+
                     hold_mode = getattr(self, "hold_mode", "Horizontal")
                     if self.is_pro_controller():
                         vertical_val = gyro_x
@@ -716,24 +722,24 @@ class Controller:
                     eff_v = 0
                     if vertical_val > gyro_deadzone: eff_v = vertical_val - gyro_deadzone
                     elif vertical_val < -gyro_deadzone: eff_v = vertical_val + gyro_deadzone
-                    
-                    accel_factor = 0.002 
-                    
+
+                    accel_factor = 0.002
+
                     target_vx += eff_h * sensitivity * accel_factor
                     target_vy += eff_v * -sensitivity * accel_factor
 
-            stick_deadzone = 0.05 
+            stick_deadzone = 0.05
             stick_sens = getattr(CONFIG, "stick_mouse_sensitivity", 20.0) * 0.66
-            
+
             import math
             stick_magnitude = math.sqrt(rx**2 + ry**2)
-            
+
             if stick_magnitude > stick_deadzone:
                 normalized_mag = (stick_magnitude - stick_deadzone) / (1.0 - stick_deadzone)
-                
+
                 normalized_rx = (rx / stick_magnitude) * normalized_mag
                 normalized_ry = (ry / stick_magnitude) * normalized_mag
-                
+
                 target_vx += normalized_rx * stick_sens
                 target_vy += normalized_ry * -stick_sens
 
@@ -777,8 +783,8 @@ class Controller:
                 now = time.perf_counter()
                 dt = now - last_time
                 last_time = now
-                
-                if dt > 0.05: dt = 0.015 
+
+                if dt > 0.05: dt = 0.015
 
                 time_scale = dt / 0.001
                 step_x = self.current_vx * time_scale
@@ -807,10 +813,10 @@ class Controller:
 
     def is_joycon_left(self):
         return self.controller_info.product_id == JOYCON2_LEFT_PID
-    
+
     def is_joycon(self):
         return self.is_joycon_left() or self.is_joycon_right()
-    
+
     def is_pro_controller(self):
         return self.controller_info.product_id == PRO_CONTROLLER2_PID
 
