@@ -24,7 +24,6 @@ classifiers = [
 ]
 dependencies = [
     "bleak==1.0.1",
-    "PyBluez @ git+https://github.com/pybluez/pybluez.git@82cbba8a1ebd4c1e3442dfafd8581d58c50fa39e",
     "pywin32>=311",
     "PyYAML>=6.0.2",
     "vgamepad>=0.1.0",

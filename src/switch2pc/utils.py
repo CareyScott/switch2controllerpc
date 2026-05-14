@@ -19,6 +19,15 @@ def convert_mac_string_to_value(mac: str):
     return int.from_bytes(bytes([int(b, 16) for b in mac.split(":")]), "big")
 
 
+async def get_local_bdaddr_value() -> int:
+    """Returns the host Bluetooth adapter address as a 48-bit integer."""
+    from winrt.windows.devices.bluetooth import BluetoothAdapter
+    adapter = await BluetoothAdapter.get_default_async()
+    if adapter is None:
+        raise RuntimeError("No Bluetooth adapter available")
+    return adapter.bluetooth_address
+
+
 def get_stick_xy(data: bytes):
     """Convert 3 bytes containing stick x y values into these values"""
     value = decodeu(data)

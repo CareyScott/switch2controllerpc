@@ -4,7 +4,6 @@ import asyncio
 import logging
 import threading
 
-import bluetooth
 from bleak import BleakScanner
 from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
@@ -16,7 +15,7 @@ from .controller import (
     NSO_GAMECUBE_CONTROLLER_PID,
     Controller,
 )
-from .utils import convert_mac_string_to_value, decodeu, to_hex
+from .utils import decodeu, get_local_bdaddr_value, to_hex
 from .virtual_controller import VirtualController
 
 logger = logging.getLogger(__name__)
@@ -34,7 +33,7 @@ async def run_discovery(update_controllers_threadsafe, quit_event):
     DISCOVERER_LOOP = asyncio.get_running_loop()
 
     try:
-        host_mac_value = convert_mac_string_to_value(bluetooth.read_local_bdaddr()[0])
+        host_mac_value = await get_local_bdaddr_value()
         connected_mac_addresses: list[str] = []
 
         async def disconnected_controller(controller: Controller):
