@@ -25,7 +25,7 @@ jobs:
           cache-dependency-glob: pyproject.toml
 
       - name: Install build deps
-        run: uv pip install --system -e .[dev]
+        run: uv pip install --system -v ".[dev]"
 
       - name: Build exe
         run: pyinstaller --clean --noconfirm switch2pc.spec

@@ -25,7 +25,7 @@ jobs:
           cache-dependency-glob: pyproject.toml
 
       - name: Install
-        run: uv pip install --system -e .[dev]
+        run: uv pip install --system -v ".[dev]"
 
       - name: Ruff
         run: ruff check src tests
