@@ -1,0 +1,55 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev]
+
+      - name: Build exe
+        run: pyinstaller --clean --noconfirm switch2pc.spec
+
+      - name: Show artifact
+        run: |
+          Get-ChildItem dist
+          $size = (Get-Item dist\switch2pc.exe).Length / 1MB
+          Write-Host ("switch2pc.exe size: {0:N1} MB" -f $size)
+
+      - name: Upload as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: switch2pc-exe
+          path: dist/switch2pc.exe
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/switch2pc.exe
+          generate_release_notes: true
+          body: |
+            ## Install
+
+            1. Download `switch2pc.exe` from the assets below.
+            2. Double-click to run. On first launch, you'll be prompted to install the ViGEmBus driver (one UAC prompt) if it isn't already on your system.
+            3. Press any button on a paired Switch 2 controller, or hold Sync on an unpaired one.
+
+            See the [README](https://github.com/CareyScott/switch2controllerpc#readme) for details.

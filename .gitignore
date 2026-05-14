@@ -1,0 +1,48 @@
+# Build output
+build/
+dist/
+*.egg-info/
+*.spec.bak
+
+# PyInstaller workdir
+*.spec.cache
+
+# Python
+__pycache__/
+*.py[codz]
+*.so
+*.egg
+.Python
+
+# Environments
+.env
+.venv
+.venv-*
+venv/
+env/
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Runtime artifacts
+*.log
+config.yaml
+!src/switch2pc/resources/config.yaml
+
+# Upstream reference (used while porting, ignored from commits)
+_upstream/

@@ -1,0 +1,108 @@
+# Default config shipped with switch2controllerpc.
+# On first launch the app copies this file next to the executable as `config.yaml`
+# and writes user-specific data (per-device gyro calibration, etc.) there.
+
+abxy_mode: Xbox
+combine_joycons: true
+controller_mode: Xbox
+deadzone: 50
+simulation_mode: Xbox
+
+buttons:
+  dual_joycons:
+    A: A
+    B: B
+    DOWN: DOWN
+    HOME: GUIDE
+    L: LB
+    LEFT: LEFT
+    L_STK: L_STK
+    MINUS: BACK
+    PLUS: START
+    R: RB
+    RIGHT: RIGHT
+    R_STK: R_STK
+    UP: UP
+    X: X
+    Y: Y
+    ZL: LT
+    ZR: RT
+  procon:
+    A: A
+    B: B
+    DOWN: DOWN
+    HOME: GUIDE
+    L: LB
+    LEFT: LEFT
+    L_STK: L_STK
+    MINUS: BACK
+    PLUS: START
+    R: RB
+    RIGHT: RIGHT
+    R_STK: R_STK
+    UP: UP
+    X: X
+    Y: Y
+    ZL: LT
+    ZR: RT
+  single_joycon_l:
+    CAPT: START
+    DOWN: B
+    L: LT
+    LEFT: A
+    L_STK: L_STK
+    MINUS: BACK
+    RIGHT: Y
+    SL_L: LB
+    SR_L: RB
+    UP: X
+    ZL: RT
+  single_joycon_r:
+    A: A
+    B: X
+    C: BACK
+    HOME: GUIDE
+    PLUS: START
+    R: LT
+    R_STK: L_STK
+    SL_R: LB
+    SR_R: RB
+    X: B
+    Y: Y
+    ZR: RT
+
+# Extra button mappings (set to "Gyro" to use as the gyro-mouse trigger,
+# "PSTPAD_L"/"PSTPAD_R" for DS4 touchpad clicks, "None" to pass through, etc.)
+gl_mapping: None
+gr_mapping: Gyro
+c_mapping: None
+slr_mapping: Gyro
+srl_mapping: None
+
+# Gyro behaviour
+gyro_mode: Yaw          # Yaw (FPS aiming) or Roll (steering wheel)
+gyro_sensitivity: 4.0
+gyro_activation_mode: Hold  # Hold or Toggle
+stick_mouse_sensitivity: 5.0
+
+# Default gyro biases (per-device calibration is stored in calibration_data:
+# keyed by MAC address, written by the in-app "Calibrate Gyro" button).
+gyro_bias_l: [0.0, 0.0, 0.0]
+gyro_bias_r: [0.0, 0.0, 0.0]
+stick_r_bias: [0.0, 0.0]
+calibration_data: {}
+
+# Mouse mode (Joy-con as a mouse when laid on a flat surface)
+mouse:
+  enabled: true
+  sensitivity: 5.0
+  scroll_sensitivity: 2
+  buttons:
+    left_joycon:
+      left_button: L
+      middle_button: L_STK
+      right_button: ZL
+    right_joycon:
+      left_button: R
+      middle_button: R_STK
+      right_button: ZR
