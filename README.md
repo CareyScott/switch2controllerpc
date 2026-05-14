@@ -23,12 +23,14 @@ Grab the latest `switch2pc.exe` from the [Releases page](https://github.com/Care
 
 Double-click `switch2pc.exe`.
 
+> **Windows SmartScreen warning** — on first launch Windows will likely show *"Windows protected your PC / Unknown publisher"*. This is because the `.exe` isn't code-signed (signing certs cost money and this is a hobby project, not because the file is unsafe). Click **More info → Run anyway**.
+
 The first time you launch it, the app checks for [ViGEmBus](https://github.com/nefarius/ViGEmBus) — the virtual-gamepad driver that lets Windows see your controller as an Xbox or PS4 pad. If it's not installed yet:
 
 - You'll see **one UAC prompt** asking to install it. Click yes.
 - The installer runs automatically and the app finishes starting.
 
-You won't see this prompt on later launches.
+You won't see either of these prompts on later launches.
 
 ### 3. Connect a controller
 
