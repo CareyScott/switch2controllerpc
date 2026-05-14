@@ -73,11 +73,18 @@ buttons:
 
 # Extra button mappings (set to "Gyro" to use as the gyro-mouse trigger,
 # "PSTPAD_L"/"PSTPAD_R" for DS4 touchpad clicks, "None" to pass through, etc.)
+# Modern shortcut actions are also accepted: SteamBigPicture, SteamLibrary,
+# XboxGameBar, XboxApp. These fire once per press.
 gl_mapping: None
 gr_mapping: Gyro
 c_mapping: None
 slr_mapping: Gyro
 srl_mapping: None
+
+# HOME default opens Steam Big Picture. Set to "None" to pass HOME through as
+# the Xbox Guide / PS button. CAPT default is "CAPT" (Win+PrintScreen).
+home_mapping: SteamBigPicture
+capt_mapping: CAPT
 
 # Gyro behaviour
 gyro_mode: Yaw          # Yaw (FPS aiming) or Roll (steering wheel)

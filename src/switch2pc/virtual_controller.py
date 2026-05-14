@@ -43,6 +43,13 @@ class VirtualController:
         self.hold_mode = "Horizontal"
         self.active_gyro_side = "Right"
 
+        # Live state mirror used by the GUI preview widgets. Holds the most
+        # recent post-processed inputs so the UI can highlight pressed
+        # buttons in real time without polling the BLE callback path itself.
+        self.live_buttons = 0
+        self.live_left_stick = (0.0, 0.0)
+        self.live_right_stick = (0.0, 0.0)
+
         self.mode = getattr(CONFIG, "simulation_mode", "Xbox")
         self._setup_vg_controller()
 
@@ -248,6 +255,21 @@ class VirtualController:
                 self.update_as_ps4(inputData, buttons, controller)
             else:
                 self.update_as_xbox(inputData, buttons, controller, buttonsConfig)
+
+            # Mirror final inputs for the preview widget. Sticks come from
+            # whichever physical controller produced them in this report.
+            self.live_buttons = buttons
+            if controller.is_pro_controller():
+                self.live_left_stick = inputData.left_stick
+                self.live_right_stick = inputData.right_stick
+            elif controller.is_joycon_left():
+                self.live_left_stick = inputData.left_stick
+                if len(self.controllers) == 1 and self.hold_mode == "Vertical":
+                    self.live_right_stick = inputData.right_stick
+            elif controller.is_joycon_right():
+                self.live_right_stick = inputData.right_stick
+                if len(self.controllers) == 1 and self.hold_mode == "Vertical":
+                    self.live_left_stick = inputData.left_stick
 
             # Record raw buttons for shared click logic in next report
             controller._last_raw_buttons = current_buttons

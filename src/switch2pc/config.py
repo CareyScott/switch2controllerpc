@@ -38,11 +38,25 @@ SWITCH_BUTTONS = {
     "PSTPAD_R": 0x08000000,
 }
 
+# One-shot OS shortcut actions, fired on the rising edge of a configured button.
+MODERN_ACTIONS = [
+    "SteamBigPicture",
+    "SteamLibrary",
+    "XboxGameBar",
+    "XboxApp",
+]
+
 BACK_BUTTON_OPTIONS = [
     "None", "Gyro", "CAPT", "C", "PSTPAD_L", "PSTPAD_R",
     "A", "B", "X", "Y", "L", "R", "ZL", "ZR",
     "MINUS", "PLUS", "L_STK", "R_STK", "UP", "DOWN", "LEFT", "RIGHT",
-]
+] + MODERN_ACTIONS
+
+# HOME has no sensible gameplay mapping; only passthrough or a shortcut action.
+HOME_BUTTON_OPTIONS = ["None"] + MODERN_ACTIONS
+
+# CAPT defaults to "CAPT" (screenshot via Win+PrintScreen) for backward compatibility.
+CAPT_BUTTON_OPTIONS = ["None", "CAPT"] + MODERN_ACTIONS
 
 XB_BUTTONS = {
     "UP": 0x0001,
@@ -179,6 +193,8 @@ class Config:
         self.c_mapping = config.get("c_mapping", "None")
         self.slr_mapping = config.get("slr_mapping", "Gyro")
         self.srl_mapping = config.get("srl_mapping", "None")
+        self.home_mapping = config.get("home_mapping", "SteamBigPicture")
+        self.capt_mapping = config.get("capt_mapping", "CAPT")
         self.abxy_mode = config.get("abxy_mode", "Xbox")
 
         self.gyro_mode = config.get("gyro_mode", "Yaw")
@@ -212,6 +228,8 @@ class Config:
             data["c_mapping"] = self.c_mapping
             data["slr_mapping"] = self.slr_mapping
             data["srl_mapping"] = self.srl_mapping
+            data["home_mapping"] = self.home_mapping
+            data["capt_mapping"] = self.capt_mapping
 
             data["gyro_mode"] = self.gyro_mode
             data["gyro_sensitivity"] = self.gyro_sensitivity

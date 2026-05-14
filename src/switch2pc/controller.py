@@ -1,6 +1,7 @@
 import asyncio
 import ctypes
 import logging
+import os
 import threading
 import time
 from dataclasses import dataclass
@@ -84,6 +85,32 @@ CALIBRATION_USER_JOYSTICK_2 = 0x1fc062
 LED_PATTERN = {
     1: 0x01, 2: 0x03, 3: 0x07, 4: 0x0F,
     5: 0x09, 6: 0x05, 7: 0x0D, 8: 0x06,
+}
+
+
+def _launch_url(url: str):
+    try:
+        os.startfile(url)
+    except Exception as e:
+        logger.warning(f"Failed to launch {url}: {e}")
+
+
+def _launch_xbox_game_bar():
+    try:
+        os.startfile("ms-gamingoverlay://")
+    except Exception:
+        # Fallback to Win+G in case the ms-gamingoverlay handler is unregistered.
+        win32api.keybd_event(0x5B, 0, 0, 0)
+        win32api.keybd_event(0x47, 0, 0, 0)
+        win32api.keybd_event(0x47, 0, win32con.KEYEVENTF_KEYUP, 0)
+        win32api.keybd_event(0x5B, 0, win32con.KEYEVENTF_KEYUP, 0)
+
+
+MODERN_ACTION_HANDLERS = {
+    "SteamBigPicture": lambda: _launch_url("steam://open/bigpicture"),
+    "SteamLibrary": lambda: _launch_url("steam://"),
+    "XboxGameBar": _launch_xbox_game_bar,
+    "XboxApp": lambda: _launch_url("xbox:"),
 }
 
 ### Dataclasses ###
@@ -452,33 +479,40 @@ class Controller:
             self.battery_voltage = inputData.battery_voltage
 
             btn_states = {
-                "GL": bool(inputData.buttons & 0x02000000),
-                "GR": bool(inputData.buttons & 0x01000000),
-                "C":  bool(inputData.buttons & 0x00004000),
-                "CAPT": bool(inputData.buttons & 0x00002000),
-                "SL_L": bool(inputData.buttons & 0x00200000),
-                "SR_L": bool(inputData.buttons & 0x00100000),
-                "SL_R": bool(inputData.buttons & 0x00000020),
-                "SR_R": bool(inputData.buttons & 0x00000010)
+                "HOME": bool(inputData.buttons & SWITCH_BUTTONS["HOME"]),
+                "CAPT": bool(inputData.buttons & SWITCH_BUTTONS["CAPT"]),
+                "GL": bool(inputData.buttons & SWITCH_BUTTONS["GL"]),
+                "GR": bool(inputData.buttons & SWITCH_BUTTONS["GR"]),
+                "C":  bool(inputData.buttons & SWITCH_BUTTONS["C"]),
+                "SL_L": bool(inputData.buttons & SWITCH_BUTTONS["SL_L"]),
+                "SR_L": bool(inputData.buttons & SWITCH_BUTTONS["SR_L"]),
+                "SL_R": bool(inputData.buttons & SWITCH_BUTTONS["SL_R"]),
+                "SR_R": bool(inputData.buttons & SWITCH_BUTTONS["SR_R"]),
             }
 
-            inputData.buttons &= ~(0x03306030)
+            inputData.buttons &= ~(0x03306030 | SWITCH_BUTTONS["HOME"])
 
             trigger_gyro = False
-            trigger_screenshot = btn_states["CAPT"]
+            trigger_screenshot = False
             trigger_key_c = False
 
             mapping_pairs = [
-                (btn_states["GL"], getattr(CONFIG, "gl_mapping", "None"), 0x02000000),
-                (btn_states["GR"], getattr(CONFIG, "gr_mapping", "None"), 0x01000000),
-                (btn_states["C"],  getattr(CONFIG, "c_mapping", "None"), 0x00004000),
-                (btn_states["SL_L"], getattr(CONFIG, "sll_mapping", "None"), 0x00200000),
-                (btn_states["SR_L"], getattr(CONFIG, "srl_mapping", "None"), 0x00100000),
-                (btn_states["SL_R"], getattr(CONFIG, "slr_mapping", "None"), 0x00000020),
-                (btn_states["SR_R"], getattr(CONFIG, "srr_mapping", "None"), 0x00000010)
+                ("HOME", btn_states["HOME"], getattr(CONFIG, "home_mapping", "SteamBigPicture"), SWITCH_BUTTONS["HOME"]),
+                ("CAPT", btn_states["CAPT"], getattr(CONFIG, "capt_mapping", "CAPT"), SWITCH_BUTTONS["CAPT"]),
+                ("GL", btn_states["GL"], getattr(CONFIG, "gl_mapping", "None"), SWITCH_BUTTONS["GL"]),
+                ("GR", btn_states["GR"], getattr(CONFIG, "gr_mapping", "None"), SWITCH_BUTTONS["GR"]),
+                ("C",  btn_states["C"],  getattr(CONFIG, "c_mapping", "None"), SWITCH_BUTTONS["C"]),
+                ("SL_L", btn_states["SL_L"], getattr(CONFIG, "sll_mapping", "None"), SWITCH_BUTTONS["SL_L"]),
+                ("SR_L", btn_states["SR_L"], getattr(CONFIG, "srl_mapping", "None"), SWITCH_BUTTONS["SR_L"]),
+                ("SL_R", btn_states["SL_R"], getattr(CONFIG, "slr_mapping", "None"), SWITCH_BUTTONS["SL_R"]),
+                ("SR_R", btn_states["SR_R"], getattr(CONFIG, "srr_mapping", "None"), SWITCH_BUTTONS["SR_R"]),
             ]
 
-            for is_pressed, action, original_bit in mapping_pairs:
+            for btn_name, is_pressed, action, original_bit in mapping_pairs:
+                prev_attr = f"_prev_btn_{btn_name}"
+                rising_edge = is_pressed and not getattr(self, prev_attr, False)
+                setattr(self, prev_attr, is_pressed)
+
                 if is_pressed:
                     if action == "Gyro": trigger_gyro = True
                     elif action == "CAPT": trigger_screenshot = True
@@ -487,6 +521,12 @@ class Controller:
                         inputData.buttons |= original_bit
                     elif action in SWITCH_BUTTONS:
                         inputData.buttons |= SWITCH_BUTTONS[action]
+
+                if rising_edge and action in MODERN_ACTION_HANDLERS:
+                    try:
+                        MODERN_ACTION_HANDLERS[action]()
+                    except Exception as e:
+                        logger.warning(f"Action {action} on {btn_name} failed: {e}")
 
             raw_left_pressed  = bool(inputData.buttons & 0x01)
             raw_up_pressed    = bool(inputData.buttons & 0x02)

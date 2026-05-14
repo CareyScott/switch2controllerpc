@@ -1,73 +1,131 @@
 # switch2controllerpc
 
-Use Nintendo Switch 2 Joy-cons and the Pro Controller 2 as PC gamepads on Windows 10/11, with high-precision gyro mouse aiming, DualShock 4 / Xbox 360 emulation, and on-the-fly layout switching.
+**Use your Nintendo Switch 2 controllers as a regular PC gamepad.** Pair your Joy-Cons or Pro Controller 2 to Windows over Bluetooth and your PC sees them as an Xbox 360 or PlayStation 4 controller — so they Just Work in Steam, Game Pass, emulators, and most native PC games.
 
-## Why this fork
+Includes high-precision gyro aiming, on-the-fly Joy-Con split / merge, and a button preview so you can verify every button works before booting a game.
 
-This project is a clean repackage of [TommyWabg/switch2-controllers-windows10-gyro](https://github.com/TommyWabg/switch2-controllers-windows10-gyro), which in turn forked [Nadeflore/switch2-controllers](https://github.com/Nadeflore/switch2-controllers). Differences here:
+## Will it work for me?
 
-- **First-run ViGEmBus bootstrap.** The app detects whether the [ViGEmBus driver](https://github.com/nefarius/ViGEmBus) is installed; if it isn't, it downloads the official installer and runs it with a single UAC prompt. No separate driver install step.
-- **Standard Python project layout** (`src/`, `pyproject.toml`) so contributors can install with `pip install -e .[dev]`.
-- **UTF-8 everywhere** (the upstream `requirements.txt` was UTF-16 LE and tripped some tooling).
-- **No leaked personal data.** The shipped default config has no MAC-address-keyed gyro calibration; each user calibrates their own controllers on first run.
-- **CI release pipeline** that builds a signed-when-possible `.exe` on every tagged release.
-- **License.** MIT, with attribution to both upstream authors. (Upstream projects had no explicit license at the time of forking.)
+You need:
 
-The controller protocol code is upstream's work; the bootstrap, packaging, and project hygiene are new here.
+- A PC running **Windows 10 or 11** with Bluetooth (built in, or a USB Bluetooth dongle).
+- A **Switch 2 Joy-Con, pair of Joy-Cons, or Pro Controller 2**.
 
-## Quick start (end users)
+You **do not** need a Switch console or a Nintendo Online account.
 
-1. Go to [Releases](https://github.com/CareyScott/switch2controllerpc/releases) and download `switch2pc.exe`.
-2. Double-click it. If ViGEmBus isn't installed, you'll get one UAC prompt — accept it and the driver installs automatically.
-3. Press any button on a paired Switch 2 controller, or hold the Sync button on an unpaired one.
-4. The controller appears in the app window. Tweak settings in the bottom panel.
+## Getting started (about 5 minutes)
 
-**Do not** pair the controller manually in Windows Bluetooth settings — the app uses GATT auto-discovery. If you previously paired it via Windows, remove it first.
+### 1. Download
 
-## Steam configuration
+Grab the latest `switch2pc.exe` from the [Releases page](https://github.com/CareyScott/switch2controllerpc/releases). It's a single file — put it anywhere you like (Desktop, Downloads, a folder of your choice).
 
-The app emulates either Xbox 360 or DualShock 4 (toggle from the settings panel). To stop Steam Input from double-remapping buttons:
+### 2. Run it
 
-1. Steam → Settings → Controller → Show Advanced Settings.
-2. Enable **"Enable Steam Input for Xbox controllers"**.
-3. Set **"PlayStation Controller Support"** to **Enabled** (not "Enabled in Games w/o Supports").
+Double-click `switch2pc.exe`.
 
-## Gyro calibration
+The first time you launch it, the app checks for [ViGEmBus](https://github.com/nefarius/ViGEmBus) — the virtual-gamepad driver that lets Windows see your controller as an Xbox or PS4 pad. If it's not installed yet:
 
-To eliminate drift:
+- You'll see **one UAC prompt** asking to install it. Click yes.
+- The installer runs automatically and the app finishes starting.
 
-1. Place the controller flat and still.
-2. Click **Calibrate Gyro** in the settings panel.
-3. Wait for the 2-second countdown to finish. Bias is saved per-controller (keyed by MAC address) in `config.yaml`.
+You won't see this prompt on later launches.
 
-## Features
+### 3. Connect a controller
 
-Carried over from upstream:
+The app window shows a "press button to pair" hint. What you do depends on whether this app has seen your controller before:
 
-- Dynamic Xbox 360 ↔ DS4 emulation toggle (DS4 mode exposes native motion to Steam Input and DS4-aware games).
-- 1000 Hz interpolation loop for smooth gyro and Joy-con mouse output.
-- Gyro mouse mode (FPS aiming) and gyro steering wheel mode (racing games).
-- Joy-con mouse mode (slide the Joy-con on a flat surface) with a toggle in the UI.
-- On-the-fly Nintendo / Xbox layout switching.
-- Split/merge of paired Joy-cons without restart.
-- Vertical / Horizontal hold for single Joy-con use.
-- Per-player vibration test button for identifying which controller is which.
-- Capture button mapped to `Win+PrtScn`.
-- Per-controller disconnect button in the UI.
-- Configurable extra-button mapping (`GL`, `GR`, `SL_R`, `SR_L`, `C`).
-- Stick assist (right stick adds to gyro aim).
-- ThroughputOptimized BLE connection parameter request on Windows 10/11 for lower input latency.
+- **First time with this app** — Hold the small **Sync button** on the controller (recessed, on the side rail of a Joy-Con; on the top edge of the Pro Controller next to the USB-C port) until the player LEDs start flashing. The app pairs it and adds it to a player slot.
+- **Already used it with this app before** — Just press any button on the controller. It reconnects automatically.
+
+> **Important:** do **not** pair the controller through Windows Settings → Bluetooth. This app uses its own (faster, lower-latency) pairing path. If you previously paired the controller via Windows, remove it from Windows Bluetooth first, then sync it here.
+
+That's it. The controller appears as a card at the top of the app window and is now usable as a gamepad in any game.
+
+## The app window, explained
+
+### Player cards (top of the window)
+
+Each connected controller gets a card with a **live preview** of its inputs. Press any button on the physical controller and you'll see the matching button light up red on the diagram — handy for confirming every button works before you load a game.
+
+Each card has:
+
+- **✕** — disconnect this controller (the app keeps running so you can reconnect later).
+- **Split / Merge** (when two Joy-Cons are connected) — combine the pair into one virtual gamepad, or split them into two single-player gamepads.
+- **V / H** (on a single Joy-Con) — vertical hold (one hand) or horizontal hold (sideways, like a tiny NES pad).
+- **L / R** (on combined Joy-Cons) — which Joy-Con's gyro the game receives.
+- **Vibrate** — buzzes the controller. Useful for figuring out which physical controller is "player 1".
+
+### General settings
+
+- **Emulation: Xbox vs PS4** — pick what your controller pretends to be.
+  - *Xbox* (default): looks like an Xbox 360 pad. Works in basically every PC game.
+  - *PS4*: looks like a DualShock 4, with native motion sensing. Pick this for games that have proper PS4 / gyro support.
+- **Layout: Xbox vs Switch** — Switch and Xbox have A/B/X/Y in different positions on the face.
+  - *Xbox*: position-based. Pressing the bottom face button reports as A.
+  - *Switch*: label-based. The button physically labeled A reports as A, even though it's in a different spot than an Xbox A. Pick this if you want what the controller says to match what the game shows.
+- **Joy-Con Mouse** — turn this on to use a Joy-Con as a mouse by sliding it on a flat surface (it has an optical sensor on the rail).
+- **Mouse Sens.** — how fast the mouse moves when you slide the Joy-Con.
+
+### Gyro settings
+
+The Switch 2 controllers have a gyroscope, which lets you aim by tilting the controller. This is *much* more precise than a thumbstick once you get used to it.
+
+- **Mode**
+  - *FPS* (yaw) — turning the controller left/right turns the camera. The setting for shooters.
+  - *Steering* (roll) — tilting the controller works like a steering wheel. Good for racing games.
+- **Sensitivity** — how fast the camera moves per degree of tilt.
+- **Activation**
+  - *Toggle* — press the gyro-trigger button once to enable aiming, again to disable.
+  - *Hold* — only aim while you hold the trigger.
+- **Stick Assist** — adds extra fine-tune from the right stick on top of gyro motion. Useful for quick 180s while gyro handles the precision.
+- **Calibrate Gyro** — place the controller flat and still on a desk, then click. The 2-second countdown measures your controller's "resting" state so it doesn't drift. Do this once per controller; redo if you ever notice drift. Calibration is saved per controller (by MAC address) in `config.yaml`.
+
+### Custom button mappings
+
+Switch 2 controllers have buttons that PC games don't know about (GL/GR back buttons, Chat, the rail SR/SL on detached Joy-Cons, Home, Capture). Map them to whatever you like:
+
+- **Pro Buttons** — the GL/GR back paddles on the Pro Controller, plus the Chat / C button.
+- **Joy-Con Rail** — Left SR and Right SL (the rail buttons that face you when a Joy-Con is detached).
+- **Shortcuts** — HOME and Capture. Map them to launch Steam Big Picture, the Xbox Game Bar, your Steam library, etc.
+
+## Using it with Steam
+
+Steam adds its own controller layer that can double-remap buttons on top of what this app sends. To stop that:
+
+1. Open Steam → **Settings → Controller** → click **Show Advanced Settings**.
+2. Turn on **Enable Steam Input for Xbox controllers**.
+3. Set **PlayStation Controller Support** to **Enabled** (not "Enabled in Games w/o Support").
+
+Now Steam passes through what this app sends without re-remapping.
+
+## Troubleshooting
+
+**Nothing happens when I press a button on the controller.**
+- Make sure Bluetooth is actually turned on in Windows.
+- If you previously paired the controller with Windows directly, open Settings → Bluetooth, remove it, and try again with the Sync button.
+- Hold Sync until the LEDs flash — a quick tap doesn't trigger pairing mode.
+
+**The controller pairs, then disconnects after a few seconds.**
+- Another app might be grabbing it (Steam in controller-setup mode, BetterJoy, JoyToKey, etc.). Close those and restart switch2pc.
+- The battery may be very low. Charge the controller for a few minutes and retry.
+
+**Gyro slowly drifts when I'm not moving.**
+- Click **Calibrate Gyro** with the controller flat and still on a desk.
+
+**The ViGEmBus install failed or got skipped.**
+- Download and install it manually from the [ViGEmBus releases page](https://github.com/nefarius/ViGEmBus/releases), then relaunch switch2pc.
+
+**The window looks blurry or scaled weirdly.**
+- The app sets itself DPI-aware on launch. If it still looks off, right-click `switch2pc.exe` → Properties → Compatibility → Change high DPI settings → "Override high DPI scaling behavior", set to "Application".
 
 ## Building from source
 
-Requires Python 3.11+ on Windows 10/11.
+If you want to hack on the code:
 
 ```powershell
-# Clone
 git clone https://github.com/CareyScott/switch2controllerpc
 cd switch2controllerpc
 
-# Create a venv and install
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e .[dev]
@@ -80,13 +138,26 @@ python -m switch2pc
 # Output lands in dist\switch2pc.exe
 ```
 
-## How it works (short version)
+Requires Python 3.11+ on Windows 10 or 11.
 
-- `discoverer.py` uses [bleak](https://github.com/hbldh/bleak) to scan for Switch 2 Bluetooth LE advertisements (Nintendo manufacturer ID `0x0553`) and pair / reconnect via GATT.
-- `controller.py` parses input reports, handles vibration, LEDs, calibration, and runs a 1 kHz interpolation thread for mouse motion.
-- `virtual_controller.py` uses [vgamepad](https://github.com/yannbouteiller/vgamepad) (which wraps [ViGEmBus](https://github.com/nefarius/ViGEmBus)) to expose either an XInput Xbox 360 device or a DualShock 4 device to Windows.
-- `bootstrap/vigem.py` checks for ViGEmBus before any of the above runs, and offers to install it if missing.
-- `gui.py` is the tkinter UI.
+## How it works (technical sketch)
+
+- `discoverer.py` uses [bleak](https://github.com/hbldh/bleak) to scan for Switch 2 Bluetooth LE advertisements (Nintendo manufacturer ID `0x0553`) and pair via GATT.
+- `controller.py` parses the controller's input reports and drives vibration, LEDs, and calibration. A 1 kHz interpolation thread keeps mouse motion smooth even when reports arrive less often.
+- `virtual_controller.py` uses [vgamepad](https://github.com/yannbouteiller/vgamepad) (over [ViGEmBus](https://github.com/nefarius/ViGEmBus)) to expose either an XInput Xbox 360 device or a DualShock 4 device to Windows.
+- `bootstrap/vigem.py` checks for ViGEmBus on launch and offers to install it if missing.
+- `gui.py` plus `preview.py` are the tkinter UI and the live-input preview canvas.
+
+## About this fork
+
+This repo started as a clean repackage of [TommyWabg/switch2-controllers-windows10-gyro](https://github.com/TommyWabg/switch2-controllers-windows10-gyro), which itself forked [Nadeflore/switch2-controllers](https://github.com/Nadeflore/switch2-controllers). The controller protocol code is upstream's work; this fork adds packaging and first-run UX:
+
+- **First-run ViGEmBus bootstrap** — the app detects whether the driver is installed and runs the official installer with a single UAC prompt if not. No separate install step.
+- **Standard Python project layout** (`src/`, `pyproject.toml`) so contributors can install with `pip install -e .[dev]`.
+- **UTF-8 everywhere** (upstream `requirements.txt` was UTF-16 LE and tripped some tooling).
+- **No leaked personal data** — the shipped default config has no MAC-address-keyed gyro calibration; each user calibrates their own controllers on first run.
+- **CI release pipeline** that builds a signed-when-possible `.exe` on every tagged release.
+- **License** — MIT, with attribution to both upstream authors.
 
 ## Credits
 
